@@ -24,7 +24,8 @@ name = "zero2prod"
 # We are using the latest beta release of actix-web
 # that relies on tokio 1.x.x
 # There might be _some_ turbulence - it's a beta after all!
-actix-web = ">=0.7.15"
+actix-web = "4.0.0-beta.4"
+serde = { version = "1", features = ["derive"]}
 
 [dev-dependencies]
 actix-rt = "2"
