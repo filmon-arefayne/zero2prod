@@ -38,7 +38,7 @@ async fn subscribe_returns_a_200_for_valid_form_data() {
     let address = spawn_app();
     let configuration = configuration::get_configuration().expect("Failed to read configuration.");
     let connection_string = configuration.database.connection_string();
-    let connection = PgConnection::connect(&connection_string)
+    let mut connection = PgConnection::connect(&connection_string)
         .await
         .expect("Failed to connect to Postgres.");
     let client = reqwest::Client::new();
@@ -54,7 +54,12 @@ async fn subscribe_returns_a_200_for_valid_form_data() {
         .expect("Failed to execute request.");
 
     // Assert
-    assert_eq!(200, response.status().as_u16())
+    assert_eq!(200, response.status().as_u16());
+
+    let saved = sqlx::query!("SELECT email, name FROM subscriptions",)
+        .fetch_one(&mut connection)
+        .await
+        .expect("Failed to fetch saved subscription.");
 }
 #[ignore]
 #[actix_rt::test]
@@ -85,6 +90,6 @@ async fn subscribe_returns_a_400_when_data_is_missing() {
             // Additional customised error message on test failure
             "The API did not fail with 400 Bad Request when the payload was {}.",
             error_message
-        )
+        );
     }
 }
