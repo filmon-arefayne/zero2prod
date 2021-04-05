@@ -26,7 +26,9 @@ name = "zero2prod"
 # There might be _some_ turbulence - it's a beta after all!
 actix-web = "4.0.0-beta.4"
 config = "0.11.0"
-serde = { version = "1", features = ["derive"]}
+serde = { version = "1", features = ["derive"] }
+uuid = { version = "0.8.1", features = ["v4"] }
+chrono = "0.4.15"
 
 [dependencies.sqlx]
 version = "0.5.1"
