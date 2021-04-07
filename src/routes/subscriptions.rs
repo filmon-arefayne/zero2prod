@@ -27,7 +27,7 @@ pub async fn subscribe(
     .execute(db_pool.get_ref())
     .await
     .map_err(|e| {
-        eprintln!("Failed to execute query: {}", e);
+        log::error!("Failed to execute query: {}", e);
         HttpResponse::InternalServerError().finish()
     })?;
     log::info!("New subscriber details have been saved");
