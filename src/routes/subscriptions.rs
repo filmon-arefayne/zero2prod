@@ -15,12 +15,12 @@ pub async fn subscribe(
 ) -> Result<HttpResponse, HttpResponse> {
     let request_id = Uuid::new_v4();
     // by using % sigil we are telling `tracing` to use the fmt::Display implementation
-    // let request_span = tracing::info_span!(
-    //     "Adding a new subscriber",
-    //     %request_id,
-    //     email = %form.email,
-    //     name = %form.name
-    // );
+    let request_span = tracing::info_span!(
+        "Adding a new subscriber.",
+        %request_id,
+        email = %form.email,
+        name = %form.name
+    );
     tracing::info!(
         "request_id {} - Adding '{}' '{}' as a new subscriber.",
         request_id,
