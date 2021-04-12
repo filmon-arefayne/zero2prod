@@ -2,7 +2,6 @@ use actix_web::{web, HttpResponse};
 use chrono::Utc;
 use sqlx::PgPool;
 use uuid::Uuid;
-use tracing_futures::Instrument;
 
 #[derive(serde::Deserialize)]
 pub struct FormData {
@@ -10,23 +9,31 @@ pub struct FormData {
     name: String,
 }
 
+#[tracing::instrument(
+    name = "Adding a new subscriber",
+    skip(form, db_pool),
+    fields(
+        email = %form.email,
+        name = %form.name
+    )
+)]
 pub async fn subscribe(
     form: web::Form<FormData>,
     db_pool: web::Data<PgPool>,
 ) -> Result<HttpResponse, HttpResponse> {
-    let request_id = Uuid::new_v4();
-    // by using % sigil we are telling `tracing` to use the fmt::Display implementation
-    let request_span = tracing::info_span!(
-        "Adding a new subscriber.",
-        %request_id,
-        email = %form.email,
-        name = %form.name
-    );
-    let _request_span_guard = request_span.enter();
-
-    let query_span = tracing::info_span!(
-        "Saving new subscriber details in the database"
-    );
+    insert_subscriber(&form, &db_pool)
+        .await
+        .map_err(|_| HttpResponse::InternalServerError().finish())?;
+    Ok(HttpResponse::Ok().finish())
+}
+#[tracing::instrument(
+    name = "Saving new subscriber details in the database",
+    skip(form, db_pool)
+)]
+pub async fn insert_subscriber(
+    form: &web::Form<FormData>,
+    db_pool: &web::Data<PgPool>,
+) -> Result<(), sqlx::Error> {
     sqlx::query!(
         r#"
         INSERT INTO subscriptions (id, email, name, subscribed_at)
@@ -38,12 +45,10 @@ pub async fn subscribe(
         Utc::now()
     )
     .execute(db_pool.as_ref())
-    .instrument(query_span)
     .await
     .map_err(|e| {
         tracing::error!("Failed to execute query: {:?}",e);
-        HttpResponse::InternalServerError().finish()
+        e
     })?;
-    tracing::info!("New subscriber details have been saved");
-    Ok(HttpResponse::Ok().finish())
+    Ok(())
 }
