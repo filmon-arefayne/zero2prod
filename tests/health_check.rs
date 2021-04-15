@@ -1,10 +1,10 @@
 //! tests/health_check.rs
 use sqlx::{Connection, Executor, PgConnection, PgPool};
-use telemetry::{get_subscriber, init_subscriber};
 use std::net::TcpListener;
+use telemetry::{get_subscriber, init_subscriber};
 use uuid::Uuid;
-use zero2prod::{configuration, configuration::DatabaseSettings, startup};
 use zero2prod::telemetry;
+use zero2prod::{configuration, configuration::DatabaseSettings, startup};
 
 lazy_static::lazy_static! {
     static ref TRACING: () = {
