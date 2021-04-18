@@ -1,12 +1,22 @@
-# Builder stage
-FROM rust:1.51 AS builder
-
+FROM lukemathwalker/cargo-chef as planner
 WORKDIR app
 COPY . .
-ENV SQLX_OFFLINE true
-RUN cargo build --release
+RUN cargo chef prepare --recipe-path recipe.json
 
-# Runtime stage
+FROM lukemathwalker/cargo-chef as cacher
+WORKDIR app
+COPY --from=planner /app/recipe.json recipe.json
+RUN cargo chef cook --release --recipe-path recipe.json
+
+FROM rust AS builder
+WORKDIR app
+
+COPY --from=cacher /app/target target
+COPY --from=cacher /usr/local/cargo /usr/local/cargo
+COPY . .
+ENV SQLX_OFFLINE true
+RUN cargo build --release --bin zero2prod
+
 FROM debian:buster-slim AS runtime
 WORKDIR app
 
