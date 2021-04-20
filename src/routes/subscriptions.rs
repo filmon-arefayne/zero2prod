@@ -23,9 +23,11 @@ pub async fn subscribe(
     db_pool: web::Data<PgPool>,
 ) -> Result<HttpResponse, HttpResponse> {
     // `form.0` gives us access to the underlying `FormData`
+    let name = SubscriberName::parse(form.0.name)
+        .map_err(|_| HttpResponse::BadRequest().finish())?;
     let new_subscriber = NewSubscriber { 
         email: form.0.email,
-        name: SubscriberName::parse(form.0.name)
+        name: name,
     };
     insert_subscriber(&new_subscriber, &db_pool)
         .await
@@ -47,7 +49,7 @@ pub async fn insert_subscriber(
         "#,
         Uuid::new_v4(),
         new_subscriber.email,
-        new_subscriber.name.inner_ref(),
+        new_subscriber.name.as_ref(),
         Utc::now()
     )
     .execute(db_pool)
