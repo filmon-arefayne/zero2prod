@@ -145,11 +145,11 @@ async fn subscribe_returns_a_400_when_fields_are_present_but_invalid() {
     let test_cases = vec![
         ("name=&email=ursula_le_guin%40gmail.com", "empty name"),
         ("name=Ursula&email=", "empty mail"),
-        ("name=Ursula&email=definitely-not-an-email", "invalid email")
+        ("name=Ursula&email=definitely-not-an-email", "invalid email"),
     ];
 
     for (body, description) in test_cases {
-        // Act 
+        // Act
         let response = client
             .post(&format!("{}/subscriptions", &app.address))
             .header("Content-Type", "application/x-www-form-urlencoded")
@@ -157,7 +157,7 @@ async fn subscribe_returns_a_400_when_fields_are_present_but_invalid() {
             .send()
             .await
             .expect("Failed to execute request.");
-        
+
         // Assert
         assert_eq!(
             400,
