@@ -4,7 +4,9 @@ use std::net::TcpListener;
 use telemetry::{get_subscriber, init_subscriber};
 use uuid::Uuid;
 use zero2prod::telemetry;
-use zero2prod::{configuration, configuration::DatabaseSettings, startup, email_client::EmailClient};
+use zero2prod::{
+    configuration, configuration::DatabaseSettings, email_client::EmailClient, startup,
+};
 
 lazy_static::lazy_static! {
     static ref TRACING: () = {
@@ -29,14 +31,18 @@ async fn spawn_app() -> TestApp {
     configuration.database.database_name = Uuid::new_v4().to_string();
     let connection_pool = configure_database(&configuration.database).await;
 
-    let sender_email = configuration.email_client.sender()
+    let sender_email = configuration
+        .email_client
+        .sender()
         .expect("Invalid sender email address.");
     let email_client = EmailClient::new(
         configuration.email_client.base_url,
-        sender_email
+        sender_email,
+        configuration.email_client.authorization_token,
     );
 
-    let server = startup::run(listener, connection_pool.clone(), email_client).expect("Failed to bind address");
+    let server = startup::run(listener, connection_pool.clone(), email_client)
+        .expect("Failed to bind address");
 
     let _ = tokio::spawn(server);
 
