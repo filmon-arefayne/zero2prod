@@ -7,6 +7,7 @@ pub struct EmailClient {
     base_url: String,
     authorization_token: String,
 }
+
 #[derive(serde::Serialize)]
 struct SendEmailRequest {
     from: String,
@@ -59,7 +60,7 @@ mod tests {
     use fake::faker::internet::en::SafeEmail;
     use fake::faker::lorem::en::{Paragraph, Sentence};
     use fake::{Fake, Faker};
-    use wiremock::matchers::any;
+    use wiremock::matchers::{header_exists, path, header, method};
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
     #[tokio::test]
@@ -75,7 +76,10 @@ mod tests {
         let subject: String = Sentence(1..2).fake();
         let content: String = Paragraph(1..10).fake();
 
-        Mock::given(any())
+        Mock::given(header_exists("X-Postmark-Server-Token"))
+            .and(header("Content-Type", "application/json"))
+            .and(path("/email"))
+            .and(method("POST"))
             .respond_with(ResponseTemplate::new(200))
             .expect(1)
             .mount(&mock_server)
