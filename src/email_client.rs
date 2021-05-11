@@ -90,4 +90,12 @@ mod tests {
         // Assert
         // Mock expectation are checked on drop
     }
+
+    struct SendEmailBodyMatcher;
+
+    impl wiremock::Match for SendEmailBodyMatcher {
+        fn matches(&self, request: &Request) -> bool {
+            unimplemented!()
+        }
+    }
 }
