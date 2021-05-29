@@ -1,30 +1,30 @@
-use std::convert::{TryFrom, TryInto};
-use serde_aux::field_attributes::deserialize_number_from_string;
-use sqlx::{PgConnection, postgres::PgConnectOptions};
 use crate::domain::SubscriberEmail;
+use serde_aux::field_attributes::deserialize_number_from_string;
+use sqlx::postgres::PgConnectOptions;
+use std::convert::{TryFrom, TryInto};
 
-#[derive(serde::Deserialize)]
+#[derive(Clone, serde::Deserialize)]
 pub struct Settings {
     pub database: DatabaseSettings,
     pub application: ApplicationSettings,
     pub email_client: EmailClientSettings,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(Clone, serde::Deserialize)]
 pub struct EmailClientSettings {
     pub base_url: String,
     pub sender_client: String,
     pub authorization_token: String,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(Clone, serde::Deserialize)]
 pub struct ApplicationSettings {
     #[serde(deserialize_with = "deserialize_number_from_string")]
     pub port: u16,
     pub host: String,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(Clone, serde::Deserialize)]
 pub struct DatabaseSettings {
     pub username: String,
     pub password: String,
@@ -41,7 +41,6 @@ impl EmailClientSettings {
 }
 
 impl DatabaseSettings {
-
     pub fn without_db(&self) -> PgConnectOptions {
         PgConnectOptions::new()
             .host(&self.host)

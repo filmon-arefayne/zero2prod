@@ -1,6 +1,6 @@
 # Zero to Production progress tracking
 
-## Current Page: 188
+## Current Page: 197
 
 - [x] **Chapter 1**
 - [x] **Chapter 2**
