@@ -1,17 +1,13 @@
 use once_cell::sync::Lazy;
 use sqlx::{Connection, Executor, PgConnection, PgPool};
-use wiremock::MockServer;
-use std::net::TcpListener;
 use uuid::Uuid;
-use zero2prod::{
-   configuration::DatabaseSettings,
-    startup::Application,
-};
+use wiremock::MockServer;
 use zero2prod::{
     configuration::get_configuration,
     startup::get_connection_pool,
     telemetry::{get_subscriber, init_subscriber},
 };
+use zero2prod::{configuration::DatabaseSettings, startup::Application};
 
 static TRACING: Lazy<()> = Lazy::new(|| {
     let default_filter_level = "info".to_string();
@@ -30,6 +26,18 @@ pub struct TestApp {
     pub db_pool: PgPool,
     pub port: u16,
     pub email_server: MockServer,
+}
+
+impl TestApp {
+    pub async fn post_subscriptions(&self, body: String) -> reqwest::Response {
+        reqwest::Client::new()
+            .post(&format!("{}/subscriptions", &self.address))
+            .header("Content-Type", "application/x-www-form-urlencoded")
+            .body(body)
+            .send()
+            .await
+            .expect("Failed to execute request.")
+    }
 }
 
 pub async fn spawn_app() -> TestApp {
@@ -53,10 +61,9 @@ pub async fn spawn_app() -> TestApp {
     let application = Application::build(configuration.clone())
         .await
         .expect("Failed to build application.");
-        let application_port = application.port();
-        let address = format!("http://127.0.0.1:{}", application_port);
+    let application_port = application.port();
+    let address = format!("http://127.0.0.1:{}", application_port);
 
-    
     let _ = tokio::spawn(application.run_until_stopped());
 
     TestApp {
