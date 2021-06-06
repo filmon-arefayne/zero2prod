@@ -52,6 +52,8 @@ pub async fn spawn_app() -> TestApp {
         c.database.database_name = Uuid::new_v4().to_string();
         // Use random OS port
         c.application.port = 0;
+        // Use mock server as email API
+        c.email_client.base_url = email_server.uri();
         c
     };
 
