@@ -62,7 +62,7 @@ pub async fn spawn_app() -> TestApp {
 
     let application = Application::build(configuration.clone())
         .await
-        .expect("Failed to build aiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiipplication.");
+        .expect("Failed to build application.");
     let application_port = application.port();
     let address = format!("http://127.0.0.1:{}", application_port);
 
