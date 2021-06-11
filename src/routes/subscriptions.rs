@@ -47,13 +47,9 @@ pub async fn subscribe(
         .await
         .map_err(|_| HttpResponse::InternalServerError().finish())?;
 
-    send_confirmation_email(
-        &email_client,
-        new_subscriber,
-        &base_url.0,
-    )
-    .await
-    .map_err(|_| HttpResponse::InternalServerError().finish())?;
+    send_confirmation_email(&email_client, new_subscriber, &base_url.0)
+        .await
+        .map_err(|_| HttpResponse::InternalServerError().finish())?;
 
     Ok(HttpResponse::Ok().finish())
 }
@@ -65,9 +61,9 @@ pub async fn subscribe(
 pub async fn send_confirmation_email(
     email_client: &EmailClient,
     new_subscriber: NewSubscriber,
-    base_url: web::Data<ApplicationBaseUrl>,
+    base_url: &str,
 ) -> Result<(), reqwest::Error> {
-    let confirmation_link = "https://my-api.com/subscriptions/confirm";
+    let confirmation_link = format!("{}/subscriptions/confirm?subscription_token=mytoken", base_url);
     let plain_body = format!(
         "Welcome to our newsletter!\nVisit {} to confirm your subscription.",
         confirmation_link
