@@ -5,7 +5,7 @@ use crate::{
 };
 use actix_web::{web, HttpResponse};
 use chrono::Utc;
-use sqlx::PgPool;
+use sqlx::{PgPool, Postgres, Transaction};
 use std::convert::TryInto;
 use uuid::Uuid;
 use rand::distributions::Alphanumeric;
@@ -46,15 +46,24 @@ pub async fn subscribe(
         .try_into()
         .map_err(|_| HttpResponse::BadRequest().finish())?;
 
-    let subscriber_id = insert_subscriber(&new_subscriber, &db_pool)
+    let mut transaction = db_pool
+        .begin()
+        .await
+        .map_err(|_| HttpResponse::InternalServerError().finish())?;
+
+    let subscriber_id = insert_subscriber(&mut transaction, &new_subscriber)
         .await
         .map_err(|_| HttpResponse::InternalServerError().finish())?;
 
     let subscription_token = generate_subscription_token();
-    store_token(&db_pool, subscriber_id, &subscription_token)
+    store_token(&mut transaction,  subscriber_id, &subscription_token)
         .await
         .map_err(|_| HttpResponse::InternalServerError().finish())?;
 
+    transaction
+        .commit()
+        .await
+        .map_err(|_| HttpResponse::InternalServerError().finish())?;
     send_confirmation_email(&email_client, new_subscriber, &base_url.0, &subscription_token)
         .await
         .map_err(|_| HttpResponse::InternalServerError().finish())?;
@@ -89,11 +98,11 @@ pub async fn send_confirmation_email(
 
 #[tracing::instrument(
     name = "Saving new subscriber details in the database",
-    skip(new_subscriber, db_pool)
+    skip(transaction, new_subscriber)
 )]
 pub async fn insert_subscriber(
+    transaction: &mut Transaction<'_, Postgres>,
     new_subscriber: &NewSubscriber,
-    db_pool: &PgPool,
 ) -> Result<Uuid, sqlx::Error> {
     let subscriber_id = Uuid::new_v4();
 
@@ -107,7 +116,7 @@ pub async fn insert_subscriber(
         new_subscriber.name.as_ref(),
         Utc::now()
     )
-    .execute(db_pool)
+    .execute(transaction)
     .await
     .map_err(|e| {
         tracing::error!("Failed to execute query: {:?}", e);
@@ -118,10 +127,10 @@ pub async fn insert_subscriber(
 
 #[tracing::instrument(
     name = "Store subscription token in the database",
-    skip(subscription_token, pool)
+    skip(transaction, subscription_token)
 )]
 pub async fn store_token(
-    pool: &PgPool,
+    transaction: &mut Transaction<'_, Postgres>,
     subscriber_id: Uuid,
     subscription_token: &str,
 ) -> Result<(), sqlx::Error> {
@@ -131,7 +140,7 @@ pub async fn store_token(
         subscription_token,
         subscriber_id
     )
-    .execute(pool)
+    .execute(transaction)
     .await
     .map_err(|e| {
         tracing::error!("Failed to execute query: {:?}", e);

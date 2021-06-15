@@ -76,7 +76,6 @@ mod tests {
             if let Ok(body) = result {
                 // Check that all the mandatory fields are populated
                 // without inspecting the field values
-                dbg!(&body);
                 body.get("From").is_some()
                     && body.get("To").is_some()
                     && body.get("Subject").is_some()
