@@ -3,7 +3,7 @@ use crate::{
     email_client::EmailClient,
     startup::ApplicationBaseUrl,
 };
-use actix_web::{web, HttpResponse};
+use actix_web::{web, HttpResponse, ResponseError};
 use chrono::Utc;
 use sqlx::{PgPool, Postgres, Transaction};
 use std::convert::TryInto;
@@ -57,8 +57,7 @@ pub async fn subscribe(
 
     let subscription_token = generate_subscription_token();
     store_token(&mut transaction,  subscriber_id, &subscription_token)
-        .await
-        .map_err(|_| HttpResponse::InternalServerError().finish())?;
+        .await?;
 
     transaction
         .commit()
@@ -133,7 +132,7 @@ pub async fn store_token(
     transaction: &mut Transaction<'_, Postgres>,
     subscriber_id: Uuid,
     subscription_token: &str,
-) -> Result<(), sqlx::Error> {
+) -> Result<(), StoreTokenError> {
     sqlx::query!(
         r#"INSERT INTO subscription_tokens (subscription_token, subscriber_id)
         VALUES ($1, $2)"#,
@@ -144,7 +143,7 @@ pub async fn store_token(
     .await
     .map_err(|e| {
         tracing::error!("Failed to execute query: {:?}", e);
-        e
+        StoreTokenError(e)
     })?;
     Ok(())
 }
@@ -157,3 +156,17 @@ fn generate_subscription_token() -> String {
             .take(25)
             .collect()
 }
+
+#[derive(Debug)]
+pub struct StoreTokenError(sqlx::Error);
+
+impl std::fmt::Display for StoreTokenError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "A database error was encountered while \
+            trying to store a subscription token."
+        )
+    }
+}
+impl ResponseError for StoreTokenError {}
