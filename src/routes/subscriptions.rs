@@ -4,12 +4,13 @@ use crate::{
     startup::ApplicationBaseUrl,
 };
 use actix_web::{web, HttpResponse, ResponseError};
+use anyhow::Context;
 use chrono::Utc;
+use rand::distributions::Alphanumeric;
+use rand::{thread_rng, Rng};
 use sqlx::{PgPool, Postgres, Transaction};
 use std::convert::TryInto;
 use uuid::Uuid;
-use rand::distributions::Alphanumeric;
-use rand::{thread_rng, Rng};
 
 #[derive(serde::Deserialize)]
 pub struct FormData {
@@ -43,19 +44,34 @@ pub async fn subscribe(
 ) -> Result<HttpResponse, SubscribeError> {
     let new_subscriber = form.0.try_into()?;
 
-    let mut transaction = db_pool.begin().await.map_err(|e| SubscribeError::Unexpected(Box::new(e)))?;
+    let mut transaction = db_pool
+        .begin()
+        .await
+        .context("Failed to acquire a Postgres connection from the pool")?;
 
     let subscriber_id = insert_subscriber(&mut transaction, &new_subscriber)
         .await
-        .map_err(|e| SubscribeError::Unexpected(Box::new(e)))?;
+        .context("Failed to insert new subscriber in the database.")?;
 
     let subscription_token = generate_subscription_token();
-    store_token(&mut transaction,  subscriber_id, &subscription_token).await?;
-
-    transaction.commit().await.map_err(|e| SubscribeError::Unexpected(Box::new(e)))?;
-    send_confirmation_email(&email_client, new_subscriber, &base_url.0, &subscription_token)
+    store_token(&mut transaction, subscriber_id, &subscription_token)
         .await
-        .map_err(|e| SubscribeError::Unexpected(Box::new(e)))?;
+        .context("Failed to store the confirmation token for a new subscriber.")?;
+
+    transaction
+        .commit()
+        .await
+        .context("Failed to commit SQL transaction to store a new subscriber.")?;
+    send_confirmation_email(
+        &email_client,
+        new_subscriber,
+        &base_url.0,
+        &subscription_token,
+    )
+    .await
+    .map_err(|e| {
+        SubscribeError::Unexpected(Box::new(e), "Failed to send a confirmation email.".into())
+    })?;
 
     Ok(HttpResponse::Ok().finish())
 }
@@ -70,7 +86,10 @@ pub async fn send_confirmation_email(
     base_url: &str,
     subscription_token: &str,
 ) -> Result<(), reqwest::Error> {
-    let confirmation_link = format!("{}/subscriptions/confirm?subscription_token={}", base_url, subscription_token);
+    let confirmation_link = format!(
+        "{}/subscriptions/confirm?subscription_token={}",
+        base_url, subscription_token
+    );
     let plain_body = format!(
         "Welcome to our newsletter!\nVisit {} to confirm your subscription.",
         confirmation_link
@@ -108,7 +127,8 @@ pub async fn insert_subscriber(
     .execute(transaction)
     .await
     .map_err(|e| {
-        tracing::error!("Failed to execute query: {:?}", e);
+        // no need for this, we are propagating the error via `?`
+        //tracing::error!("Failed to execute query: {:?}", e);
         e
     })?;
     Ok(subscriber_id)
@@ -132,7 +152,8 @@ pub async fn store_token(
     .execute(transaction)
     .await
     .map_err(|e| {
-        tracing::error!("Failed to execute query: {:?}", e);
+        // no need for this, we are propagating the error via `?`
+        //tracing::error!("Failed to execute query: {:?}", e);
         StoreTokenError(e)
     })?;
     Ok(())
@@ -142,18 +163,17 @@ pub async fn store_token(
 fn generate_subscription_token() -> String {
     let mut rng = thread_rng();
     std::iter::repeat_with(|| rng.sample(Alphanumeric))
-            .map(char::from)
-            .take(25)
-            .collect()
+        .map(char::from)
+        .take(25)
+        .collect()
 }
 #[derive(thiserror::Error)]
 pub enum SubscribeError {
     #[error("{0}")]
     Validation(String),
     #[error(transparent)]
-    Unexpected(#[from] Box<dyn std::error::Error>)
+    Unexpected(#[from] anyhow::Error),
 }
-
 
 impl std::fmt::Debug for SubscribeError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -165,7 +185,7 @@ impl ResponseError for SubscribeError {
     fn status_code(&self) -> reqwest::StatusCode {
         match self {
             SubscribeError::Validation(_) => reqwest::StatusCode::BAD_REQUEST,
-            SubscribeError::Unexpected(_)=> reqwest::StatusCode::INTERNAL_SERVER_ERROR,
+            SubscribeError::Unexpected(_) => reqwest::StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 }

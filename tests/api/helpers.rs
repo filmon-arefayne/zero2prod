@@ -1,4 +1,5 @@
 use once_cell::sync::Lazy;
+use reqwest::Url;
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use uuid::Uuid;
 use wiremock::MockServer;
@@ -8,7 +9,6 @@ use zero2prod::{
     telemetry::{get_subscriber, init_subscriber},
 };
 use zero2prod::{configuration::DatabaseSettings, startup::Application};
-use reqwest::Url;
 
 static TRACING: Lazy<()> = Lazy::new(|| {
     let default_filter_level = "info".to_string();
@@ -63,10 +63,7 @@ impl TestApp {
         };
         let html = get_link(&body["HtmlBody"].as_str().unwrap());
         let plain_text = get_link(&body["TextBody"].as_str().unwrap());
-        ConfirmationLinks {
-            html,
-            plain_text,
-        }
+        ConfirmationLinks { html, plain_text }
     }
 }
 
